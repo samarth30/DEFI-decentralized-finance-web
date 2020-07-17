@@ -51,7 +51,7 @@ const cTokens = {
 // })
 
 
-router.get('/tokenBalance/:cToken/:address', async ctx =>{
+router.get('/tokenBalance/:cToken', async ctx =>{
     const cToken = cTokens[ctx.params.cToken];
     if(typeof cToken === 'undefined'){
         ctx.status = 400;
@@ -64,7 +64,7 @@ router.get('/tokenBalance/:cToken/:address', async ctx =>{
     try{
         const ctokenBalance = await cToken
         .methods
-        .balanceOf(ctx.params.address)
+        .balanceOf(adminAddress)
         .call();
         const a = ctokenBalance*10;
         const b = a.toString();
@@ -72,7 +72,7 @@ router.get('/tokenBalance/:cToken/:address', async ctx =>{
         
         ctx.body = {
             cToken: ctx.params.cToken,
-            address : ctx.params.address,
+            address : adminAddress,
             balance
         }
     }catch(e){
@@ -106,20 +106,53 @@ router.post('/mint/:cToken/:amount', async ctx =>{
         tokenAddress
     )
    
-    await token
-    .methods
-    .approve(cToken.options.address,ctx.params.amount)
-    .send({from :adminAddress});
+    const tx1 = token.methods.approve(cToken.options.address,ctx.params.amount);
+    const gas1 = await tx1.estimateGas({from: adminAddress});
+    const gasPrice1 = await web3.eth.getGasPrice();
+    const data1 = tx1.encodeABI();
+    const nonce1 = await web3.eth.getTransactionCount(adminAddress);
+
+    const signedTx1 = await web3.eth.accounts.signTransaction(
+        {
+           to: token.options.address, 
+           data1,
+           gas1,
+           gasPrice1,
+           nonce1, 
+           chainId: 42
+           },
+           process.env.PRIVATE_KEY
+         );
+
+        
+    await web3.eth.sendSignedTransaction(signedTx1.rawTransaction);
+    // await token
+    // .methods
+    // .approve(cToken.options.address,ctx.params.amount)
+    // .send({from :adminAddress ,gas:});
 
     try{
-        const gasPrice = await web3.eth.getGasPrice();
-        const gasEstimate = await cToken.methods.myMethod().estimateGas({ from: account });  
+        
+    const tx = cToken.methods.mint(ctx.params.amount);
+    const gas = await tx.estimateGas({from: adminAddress});
+    const gasPrice = await web3.eth.getGasPrice();
+    const data = tx.encodeABI();
+    const nonce = await web3.eth.getTransactionCount(adminAddress);
 
-        await cToken
-        .methods
-        .mint(ctx.params.amount)
-        .send({from:from ,gasPrice: gasPrice ,gas: gasEstimate });
-     
+    const signedTx = await web3.eth.accounts.signTransaction(
+        {
+           to: cToken.options.address, 
+           data,
+           gas:'30000',
+           gasPrice:'30000',
+           nonce, 
+           chainId: 42
+           },
+           process.env.PRIVATE_KEY
+         );
+    
+       await web3.eth.sendSignedTransaction(signedTx.rawTransaction);
+        
         // const balance = web3.utils.fromWei(ctokenBalance,'ether');
         
         ctx.body = {
@@ -146,11 +179,33 @@ router.post('/redeem/:cToken/:amount', async ctx =>{
         return;
     }
 
+    const tx = cToken.methods.redeem(ctx.params.amount);
+    const gas = await tx.estimateGas({from: adminAddress});
+    const gasPrice = await web3.eth.getGasPrice();
+    const data = tx.encodeABI();
+    const nonce = await web3.eth.getTransactionCount(adminAddress);
+
     try{
-        await cToken
-        .methods
-        .redeem(ctx.params.amount)
-        .send({from:adminAddress});
+
+    const signedTx = await web3.eth.accounts.signTransaction(
+    {
+       to: cToken.options.address, 
+       data,
+       gas,
+       gasPrice,
+       nonce, 
+       chainId: 42
+       },
+       process.env.PRIVATE_KEY
+     );
+
+  
+     await web3.eth.sendSignedTransaction(signedTx.rawTransaction);
+    //  console.log(`Transaction hash: ${receipt.transactionHash}`);
+        // await cToken
+        // .methods
+        // .redeem(ctx.params.amount)
+        // .send({from:adminAddress});
         
         // const balance = web3.utils.fromWei(ctokenBalance,'ether');
         
